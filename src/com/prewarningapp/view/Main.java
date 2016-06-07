@@ -941,10 +941,6 @@ public class Main extends JFrame implements TreeSelectionListener, ActionListene
 							} else {
 								state = "抬起";
 							}
-							// 按钮报警 ,更新UI
-							// model.addRow(new String[] { board + "号板，按钮：" + (8
-							// - i), state, sdf.format(new Date()) });
-							// zhy:state;boardID
 
 							changeState(board, i, state);
 							// zhy
