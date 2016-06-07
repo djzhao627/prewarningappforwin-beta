@@ -18,6 +18,8 @@ import javax.swing.border.EmptyBorder;
 
 import com.prewarningapp.model.Board;
 import com.prewarningapp.tools.Mysqlutil;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 
 public class PositionSetting extends JFrame {
 
@@ -74,6 +76,12 @@ public class PositionSetting extends JFrame {
 	 * Create the frame.
 	 */
 	private PositionSetting() {
+		addWindowListener(new WindowAdapter() {
+			@Override
+			public void windowClosing(WindowEvent e) {
+				ps = null;
+			}
+		});
 		setTitle("\u8BBE\u7F6E\u62A5\u8B66\u70B9");
 		setResizable(false);
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
