@@ -401,6 +401,7 @@ public class Main extends JFrame implements TreeSelectionListener, ActionListene
 		scrollPane_1.setBounds(209, 448, 792, 189);
 		contentPane.add(scrollPane_1);
 		table = new JTable();
+		table.getTableHeader().setReorderingAllowed(false);
 		table.setEnabled(false);
 		int k = boardList.size();
 		SystemCount.oArr = new Object[k][7];
@@ -517,7 +518,7 @@ public class Main extends JFrame implements TreeSelectionListener, ActionListene
 			}
 		}
 		// zhy
-		char[] boards = {'0','0','0','0','0','0','0','0'};
+		char[] boards = { '0', '0', '0', '0', '0', '0', '0', '0' };
 		for (int z = 0; z < SystemCount.oArr.length; z++) {
 			if (Integer.parseInt(SystemCount.oArr[z][0].toString()) == boardId) {
 				if (SystemCount.oArr[z][1].toString().equals("产生报警")) {
@@ -610,7 +611,7 @@ public class Main extends JFrame implements TreeSelectionListener, ActionListene
 
 		}
 		// zhy
-		char[] boards = {'0','0','0','0','0','0','0','0'};
+		char[] boards = { '0', '0', '0', '0', '0', '0', '0', '0' };
 		for (int z = 0; z < SystemCount.oArr.length; z++) {
 			if (Integer.parseInt(SystemCount.oArr[z][0].toString()) == boardId) {
 				if (SystemCount.oArr[z][1].toString().equals("产生报警")) {
@@ -703,14 +704,14 @@ public class Main extends JFrame implements TreeSelectionListener, ActionListene
 
 		}
 		// zhy
-		char[] boards = {'0','0','0','0','0','0','0','0'};
+		char[] boards = { '0', '0', '0', '0', '0', '0', '0', '0' };
 		for (int z = 0; z < SystemCount.oArr.length; z++) {
 			if (Integer.parseInt(SystemCount.oArr[z][0].toString()) == boardId) {
 				if (SystemCount.oArr[z][1].toString().equals("产生报警")) {
 					switch (Integer.parseInt(SystemCount.oArr[z][5].toString())) {
 					case 1:
 						point01.setIcon(new ImageIcon(Main.class.getResource("/img/redpoint.png")));
-						boards[7] = '1';			
+						boards[7] = '1';
 						break;
 					case 2:
 						point02.setIcon(new ImageIcon(Main.class.getResource("/img/redpoint.png")));
@@ -744,9 +745,9 @@ public class Main extends JFrame implements TreeSelectionListener, ActionListene
 				}
 			}
 		}
-		
+
 		boardsState[0] = new String(boards, 0, 8);
-		
+
 		//
 		panel.validate();
 		panel.updateUI();
@@ -761,15 +762,20 @@ public class Main extends JFrame implements TreeSelectionListener, ActionListene
 
 				// 获取存在的端口
 				portList = CommPortIdentifier.getPortIdentifiers();
+				boolean notExist = true;
 				while (portList.hasMoreElements()) {
 					portId = (CommPortIdentifier) portList.nextElement();
 					if (portId.getPortType() == CommPortIdentifier.PORT_SERIAL) {
 						if (portId.getName().equals(comPort)) {
+							notExist = false;
 							SimpleRead();
 						}
 					}
 				}
-
+				if (notExist) {
+					JOptionPane.showMessageDialog(null, "串口：" + comPort + "不存在，请检查！");
+					System.exit(0);
+				}
 				return null;
 			}
 		};
@@ -895,17 +901,30 @@ public class Main extends JFrame implements TreeSelectionListener, ActionListene
 		case SerialPortEvent.OUTPUT_BUFFER_EMPTY:
 			break;
 		case SerialPortEvent.DATA_AVAILABLE:
-			byte[] readBuffer = new byte[16];
+			byte[] readBuffer = new byte[8];
 			try {
 				while (inputStream.available() > 0) {
 					numBytes = inputStream.read(readBuffer);
 					// System.out.println(numBytes);
 				}
-				String reader = (new String(readBuffer, 0, numBytes)).trim();
+				// String reader = (new String(readBuffer, 0, numBytes)).trim();
+				String reader = "";
+				for (int i = 0; i < readBuffer.length; i++) {
+					String temp = Integer.toHexString((readBuffer[i] & 0xFF));
+					if (temp.length() == 2) {
+						reader += temp.toUpperCase();
+					} else {
+						reader += "0" + temp.toUpperCase();
+					}
+				}
+
 				// for instance : 2E 7B 05 05 01 00 00 00
 				if (reader.startsWith("2E7B05") && reader.length() == 16) {
 					// 获取板号
 					int board = Integer.valueOf(reader.substring(6, 8), 16);
+					if (board <= 0) {
+						break;
+					}
 					// 转为二进制
 					String key = "00000000" + Integer.toBinaryString(Integer.valueOf(reader.substring(8, 10), 16));
 					key = key.substring(key.length() - 8, key.length());
@@ -935,12 +954,6 @@ public class Main extends JFrame implements TreeSelectionListener, ActionListene
 					if (!isSame) {
 						boardsState[board - 1] = key;
 					}
-
-					// 模块上线监控
-					if (!boardID.contains("<" + board + ">")) {
-						boardID += "<" + board + ">";
-						// list.add(" " + board);
-					}
 				}
 			} catch (IOException e) {
 			}
@@ -952,7 +965,7 @@ public class Main extends JFrame implements TreeSelectionListener, ActionListene
 		for (int z = 0; z < SystemCount.oArr.length; z++) {
 			if (board == Integer.parseInt(SystemCount.oArr[z][0].toString())
 					&& (8 - i) == Integer.parseInt(SystemCount.oArr[z][5].toString())) {
-				table.setRowSelectionInterval(z, z);
+				// table.setRowSelectionInterval(z, z);
 
 				if (state.equals("按下")) {
 					SystemCount.oArr[z][1] = "产生报警";
