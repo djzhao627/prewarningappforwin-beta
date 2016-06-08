@@ -9,8 +9,6 @@ import java.awt.Image;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.FocusAdapter;
-import java.awt.event.FocusEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
@@ -21,6 +19,9 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.TooManyListenersException;
@@ -57,6 +58,7 @@ import javax.swing.tree.DefaultTreeCellRenderer;
 import javax.swing.tree.DefaultTreeModel;
 
 import com.prewarningapp.model.Board;
+import com.prewarningapp.tools.DBUtil;
 import com.prewarningapp.tools.Mysqlutil;
 import com.prewarningapp.tools.SystemCount;
 
@@ -111,7 +113,6 @@ public class Main extends JFrame implements TreeSelectionListener, ActionListene
 	InputStream inputStream;
 	SerialPort serialPort;
 	Thread readThread;
-	private int numBytes;
 	/** 时间格式化 */
 	// private SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd
 	// HH:mm:ss");
@@ -119,8 +120,8 @@ public class Main extends JFrame implements TreeSelectionListener, ActionListene
 	/** 初始化板子状态 */
 	private String[] boardsState = { "00000000", "00000000", "00000000" };
 
-	/** 板子ID */
-	private static String boardID = "";
+	/** 上传数据,0板号 1按钮号 2状态 */
+	private static int[] uploadData = new int[3];
 
 	private Mysqlutil mysql;
 
@@ -904,8 +905,7 @@ public class Main extends JFrame implements TreeSelectionListener, ActionListene
 			byte[] readBuffer = new byte[8];
 			try {
 				while (inputStream.available() > 0) {
-					numBytes = inputStream.read(readBuffer);
-					// System.out.println(numBytes);
+					inputStream.read(readBuffer);
 				}
 				// String reader = (new String(readBuffer, 0, numBytes)).trim();
 				String reader = "";
@@ -925,8 +925,11 @@ public class Main extends JFrame implements TreeSelectionListener, ActionListene
 					if (board <= 0) {
 						break;
 					}
+					// 存入板号
+					uploadData[0] = board;
 					// 转为二进制
 					String key = "00000000" + Integer.toBinaryString(Integer.valueOf(reader.substring(8, 10), 16));
+
 					key = key.substring(key.length() - 8, key.length());
 					char[] keys = key.toCharArray();
 					char[] boardKeys = boardsState[board - 1].toCharArray();
@@ -938,12 +941,16 @@ public class Main extends JFrame implements TreeSelectionListener, ActionListene
 							String state = "按下";
 							if (keys[i] == '1') {
 								state = "按下";
+								uploadData[2] = 1;
 							} else {
 								state = "抬起";
+								uploadData[2] = 0;
 							}
-
+							uploadData[1] = (8 - i);
 							changeState(board, i, state);
-							// zhy
+
+							// 上传
+							uploadData().execute();
 						}
 					}
 					// 更新源状态
@@ -1032,6 +1039,46 @@ public class Main extends JFrame implements TreeSelectionListener, ActionListene
 		}
 		table.setModel(
 				new DefaultTableModel(SystemCount.oArr, new String[] { "板块ID", "模块状态", "所在厂区", "X轴坐标", "Y轴坐标", "位置" }));
+	}
+
+	/**
+	 * 上传数据到云服务器。
+	 * 
+	 * @return
+	 */
+	SwingWorker<Void, Void> uploadData() {
+		SwingWorker<Void, Void> upload = new SwingWorker<Void, Void>() {
+
+			@Override
+			protected Void doInBackground() {
+
+				Connection conn = null;
+				Statement s = null;
+				conn = DBUtil.getConn();
+				try {
+					s = conn.createStatement();
+					String sql = "insert into t_alarmdata(bid, keyid, ttime, yn) values(" + uploadData[0] + ", "
+							+ uploadData[1] + ", now(), " + uploadData[2] + " )";
+					s.executeUpdate(sql);
+				} catch (SQLException e) {
+					e.printStackTrace();
+				} finally {
+					try {
+						if (s != null) {
+							s.close();
+						}
+						if (conn != null) {
+							conn.close();
+						}
+					} catch (SQLException e) {
+						e.printStackTrace();
+					}
+				}
+				return null;
+			}
+
+		};
+		return upload;
 	}
 
 	@Override
